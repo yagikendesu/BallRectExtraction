@@ -31,6 +31,7 @@ void ballDotsDetector::ballDotsDetection() {
             cv::Point minP = minPoint(contours.at(maxID));
             cv::Point maxP = maxPoint(contours.at(maxID));
             cv::Rect rect(minP, maxP);
+
             //矩形を描く
             cv::rectangle(im.image, rect, cv::Scalar(0, 255, 0), 2, 8);
 
@@ -42,10 +43,144 @@ void ballDotsDetector::ballDotsDetection() {
             if(im_num > 1110) {
                 featureDetection(image_list[im_num - 1].crop_gray_image, image_list[im_num].crop_gray_image);
             }else {
-
                 cv::Mat bin_sub;
                 threshold(subImg, bin_sub, 50, 255, THRESH_BINARY); //閾値160で2値画像に変換
-//
+
+                cv::Mat canny;
+                cv::Canny(subImg, canny, 30, 110);
+                cv::Mat cannyRect = canny.clone();
+
+                cv::dilate(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 2);
+                cv::erode(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 1);
+                cv::erode(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 1);
+                cv::erode(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 1);
+
+                //画像はんてん
+                cv::Mat destination;
+                bitwise_not(cannyRect, destination);
+
+                vector<vector<cv::Point> > cannyContours;
+                vector<cv::Vec4i> cannyHierarchy;
+                cv::findContours(destination, cannyContours, cannyHierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_TC89_L1);
+
+                for (int i = 0; i < cannyContours.size(); i++) {
+                    cv::Point minP = minPoint(contours.at(i));
+                    cv::Point maxP = maxPoint(contours.at(i));
+                    cv::Rect rect(minP, maxP);
+                    //矩形を描く
+                    cv::rectangle(colorRectImg, rect, cv::Scalar(0, 255, 0), 2, 8);
+                }
+
+                cv::imshow("color", im.image);
+//        cv::imshow("binary", subImg);
+//        cv::imshow("binaryaa", subImg);
+//        cv::imshow("cambby", canny);
+//        cv::imshow("camnny rect", cannyRect);
+//        cv::imshow("color rect", colorRectImg);
+
+
+                cv::waitKey();
+            }
+        im_num++;
+    }
+
+}
+
+
+void ballDotsDetector::ballDotsDetectionFromVideo(string videoFolderPath) {
+    int im_num = 0;
+    VideoCapture cap(videoFolderPath); //Windowsの場合　パス中の¥は重ねて¥¥とする
+    int max_frame=cap.get(CV_CAP_PROP_FRAME_COUNT); //フレーム数
+
+    ofstream outText("./result.csv");
+    for(int i=0; i<max_frame;i++){
+        ImageInfo im;
+        image_list.push_back(im);
+        cap >> im.image;
+        cvtColor(im.image, im.gray_image, CV_BGR2GRAY);
+//        this->image_list.push_back(im);
+
+        cv::Mat bin_img;
+        threshold(im.gray_image, bin_img, 15, 255, THRESH_BINARY); //閾値160で2値画像に変換
+
+        vector<vector<cv::Point> > contours;
+        vector<cv::Vec4i> hierarchy;
+        cv::findContours(bin_img, contours, hierarchy, CV_RETR_EXTERNAL, CV_CHAIN_APPROX_SIMPLE);
+
+        int max_area = 0;
+        int maxID = 0;
+        for (int i = 0; i < contours.size(); i++) {
+            double area = cv::contourArea(contours.at(i));
+            if (max_area < area) {
+                max_area = area;
+                maxID = i;
+            }
+        }
+
+        cv::Point minP = minPoint(contours.at(maxID));
+        cv::Point maxP = maxPoint(contours.at(maxID));
+        cv::Rect rect(minP, maxP);
+
+        int rectWidth = maxP.x - minP.x;
+        int rectHeight = maxP.x - minP.x;
+        outText << maxP << " " << minP << endl;
+
+        //矩形を描く
+        cv::rectangle(im.image, rect, cv::Scalar(0, 255, 0), 2, 8);
+
+        //gray scaleからrectをクロップ
+        cv::Mat subImg = im.gray_image(rect); // 切り出し画像
+        image_list[im_num].crop_gray_image = subImg;
+        cv::Mat colorRectImg = im.image(rect); // 切り出し画像
+
+        if(im_num > 1110) {
+            featureDetection(image_list[im_num - 1].crop_gray_image, image_list[im_num].crop_gray_image);
+        }else {
+            cv::Mat bin_sub;
+            threshold(subImg, bin_sub, 50, 255, THRESH_BINARY); //閾値160で2値画像に変換
+
+            cv::Mat canny;
+            cv::Canny(subImg, canny, 30, 110);
+            cv::Mat cannyRect = canny.clone();
+
+            cv::dilate(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 2);
+            cv::erode(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 1);
+            cv::erode(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 1);
+            cv::erode(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 1);
+
+            //画像はんてん
+            cv::Mat destination;
+            bitwise_not(cannyRect, destination);
+
+            vector<vector<cv::Point> > cannyContours;
+            vector<cv::Vec4i> cannyHierarchy;
+            cv::findContours(destination, cannyContours, cannyHierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_TC89_L1);
+
+            for (int i = 0; i < cannyContours.size(); i++) {
+                cv::Point minP = minPoint(contours.at(i));
+                cv::Point maxP = maxPoint(contours.at(i));
+                cv::Rect rect(minP, maxP);
+                //矩形を描く
+                cv::rectangle(colorRectImg, rect, cv::Scalar(0, 255, 0), 2, 8);
+            }
+
+            cv::imshow("color", im.image);
+//        cv::imshow("binary", subImg);
+//        cv::imshow("binaryaa", subImg);
+//        cv::imshow("cambby", canny);
+//        cv::imshow("camnny rect", cannyRect);
+//        cv::imshow("color rect", colorRectImg);
+
+
+            cv::waitKey();
+        }
+        im_num++;
+    }
+
+}
+
+
+
 //
 //                int range = 6;
 //                for (int i = 0 + range / 2; i < subImg.rows - range / 2; i++) {
@@ -101,45 +236,6 @@ void ballDotsDetector::ballDotsDetection() {
 //                cv::imshow("saaa", subImg);
 //                cv::imshow("sassaa", dst);
 //
-                cv::Mat canny;
-                cv::Canny(subImg, canny, 30, 110);
-                cv::Mat cannyRect = canny.clone();
-
-                cv::dilate(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 2);
-                cv::erode(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 1);
-                cv::erode(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 1);
-                cv::erode(cannyRect, cannyRect, cv::Mat(), cv::Point(-1, -1), 1);
-
-                //画像はんてん
-                cv::Mat destination;
-                bitwise_not(cannyRect, destination);
-
-                vector<vector<cv::Point> > cannyContours;
-                vector<cv::Vec4i> cannyHierarchy;
-                cv::findContours(destination, cannyContours, cannyHierarchy, CV_RETR_LIST, CV_CHAIN_APPROX_TC89_L1);
-
-                for (int i = 0; i < cannyContours.size(); i++) {
-                    cv::Point minP = minPoint(contours.at(i));
-                    cv::Point maxP = maxPoint(contours.at(i));
-                    cv::Rect rect(minP, maxP);
-                    //矩形を描く
-                    cv::rectangle(colorRectImg, rect, cv::Scalar(0, 255, 0), 2, 8);
-                }
-
-                cv::imshow("color", im.image);
-//        cv::imshow("binary", subImg);
-//        cv::imshow("binaryaa", subImg);
-//        cv::imshow("cambby", canny);
-//        cv::imshow("camnny rect", cannyRect);
-//        cv::imshow("color rect", colorRectImg);
-
-
-                cv::waitKey();
-            }
-        im_num++;
-    }
-
-}
 
 
 void featureDetection(cv::Mat scene1, cv::Mat scene2){

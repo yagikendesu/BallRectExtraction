@@ -15,7 +15,10 @@ public:
 
 
     void ballDotsDetection();
+    void ballDotsDetectionFromVideo(std::string videoFolderPath);
     void loadVideo(std::string videoPath);
+
+    int VIDEO_NUMBER;
 };
 
 //最小座標を求める
